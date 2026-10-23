@@ -1,0 +1,55 @@
+
+# =========================
+# SECRET / ENVIRONMENT
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# PYTHON
+# =========================
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# =========================
+# DATABASE / LOCAL DATA
+# =========================
+instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# =========================
+# NODE.JS / HARDHAT
+# =========================
+node_modules/
+blockchain-network/node_modules/
+blockchain-network/artifacts/
+blockchain-network/cache/
+blockchain-network/types/
+
+# =========================
+# TEST / TEMPORARY FILES
+# =========================
+*.log
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
+
+# =========================
+# EDITOR
+# =========================
+.vscode/
+.idea/
+
+# Local backup
+app_backup.py

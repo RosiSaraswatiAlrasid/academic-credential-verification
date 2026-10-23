@@ -1,0 +1,318 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Academic Credential Verification</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <header>
+        <h2>Academic Credential Verification</h2>
+    </header>
+
+    <main>
+        <h1>Verifikasi Kredensial Akademik</h1>
+
+        <p class="subtitle">
+            Penerbitan dan verifikasi kredensial akademik menggunakan
+            smart contract dan pencatatan hash.
+        </p>
+
+        <div class="message {% if evm_connected %}success{% else %}error{% endif %}">
+            {% if evm_connected %}
+                Blockchain EVM lokal terhubung.
+            {% else %}
+                Blockchain EVM lokal tidak terhubung.
+            {% endif %}
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <div class="message {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endwith %}
+
+        <section class="stats">
+            <div class="stat">
+                <span>Total Kredensial</span>
+                <strong>{{ total_credentials }}</strong>
+            </div>
+
+            <div class="stat">
+                <span>Kredensial Aktif</span>
+                <strong>{{ active_credentials }}</strong>
+            </div>
+
+            <div class="stat">
+                <span>Total Blok</span>
+                <strong>{{ total_blocks }}</strong>
+            </div>
+        </section>
+
+        <section class="layout">
+            <div class="panel">
+                <h2>Terbitkan Kredensial</h2>
+                <p class="muted">
+                    Gunakan data dummy untuk pengujian sistem.
+                </p>
+
+                <form action="{{ url_for('issue_credential') }}" method="POST">
+                    <label for="student_name">Nama Lulusan</label>
+                    <input
+                        id="student_name"
+                        name="student_name"
+                        maxlength="100"
+                        required
+                    >
+
+                    <label for="student_id">NIM/NPM</label>
+                    <input
+                        id="student_id"
+                        name="student_id"
+                        maxlength="40"
+                        required
+                    >
+
+                    <label for="credential_type">Jenis Kredensial</label>
+                    <select id="credential_type" name="credential_type" required>
+                        <option value="">Pilih jenis</option>
+                        <option value="Ijazah">Ijazah</option>
+                        <option value="Transkrip Nilai">Transkrip Nilai</option>
+                        <option value="Sertifikat Kompetensi">Sertifikat Kompetensi</option>
+                    </select>
+
+                    <label for="institution">Nama Institusi</label>
+                    <input
+                        id="institution"
+                        name="institution"
+                        maxlength="150"
+                        required
+                    >
+
+                    <label for="graduation_year">Tahun Kelulusan</label>
+                    <input
+                        id="graduation_year"
+                        name="graduation_year"
+                        type="number"
+                        min="1900"
+                        max="2100"
+                        placeholder="Contoh: 2026"
+                        required
+                    >
+
+                    <button type="submit">Terbitkan Kredensial</button>
+                </form>
+            </div>
+
+            <div class="panel">
+                <h2>Verifikasi Kredensial</h2>
+                <p class="muted">
+                    Masukkan ID kredensial untuk memeriksa statusnya.
+                </p>
+
+                <form action="{{ url_for('index') }}" method="GET">
+                    <label for="credential_id">ID Kredensial</label>
+                    <input
+                        id="credential_id"
+                        name="credential_id"
+                        placeholder="Contoh: CRD-A1B2C3D4"
+                        value="{{ request.args.get('credential_id', '') }}"
+                        required
+                    >
+                    <button type="submit">Verifikasi</button>
+                </form>
+
+                {% if verification %}
+                    <hr>
+
+                    {% if verification.not_found %}
+                        <div class="message error">
+                            Kredensial tidak ditemukan.
+                        </div>
+                    {% else %}
+                        <h3>Hasil Verifikasi</h3>
+
+                        {% if verification.valid %}
+                            <div class="message success">
+                                {{ verification.message }}
+                            </div>
+                        {% else %}
+                            <div class="message error">
+                                {{ verification.message }}
+                            </div>
+                        {% endif %}
+
+                        <p><b>ID:</b> {{ verification.credential.credential_id }}</p>
+                        <p><b>Nama:</b> {{ verification.credential.student_name }}</p>
+                        <p><b>Jenis:</b> {{ verification.credential.credential_type }}</p>
+                        <p><b>Institusi:</b> {{ verification.credential.institution }}</p>
+                        <p><b>Status:</b> {{ verification.credential.status }}</p>
+
+                        <p class="hash-label">Hash Kredensial</p>
+                        <div class="hash hash-value">
+                            {{ verification.credential.credential_hash }}
+                        </div>
+
+                        <p class="hash-label">Transaction Hash Penerbitan</p>
+                        {% if verification.credential.blockchain_tx_hash %}
+                            <div class="hash hash-value">
+                                {{ verification.credential.blockchain_tx_hash }}
+                            </div>
+                        {% else %}
+                            <p class="muted">
+                                Hash transaksi penerbitan tidak tersedia.
+                            </p>
+                        {% endif %}
+
+                        {% if verification.credential.revocation_tx_hash %}
+                            <p class="hash-label">Transaction Hash Pencabutan</p>
+                            <div class="hash hash-value">
+                                {{ verification.credential.revocation_tx_hash }}
+                            </div>
+                        {% endif %}
+                    {% endif %}
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>Daftar Kredensial</h2>
+
+            {% if credentials %}
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID Kredensial</th>
+                                <th>Nama</th>
+                                <th>Jenis</th>
+                                <th>Status</th>
+                                <th>Blok</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for item in credentials %}
+                                <tr>
+                                    <td>{{ item.credential_id }}</td>
+                                    <td>{{ item.student_name }}</td>
+                                    <td>{{ item.credential_type }}</td>
+                                    <td>
+                                        <span class="status {% if item.status == 'Dicabut' %}revoked{% endif %}">
+                                            {{ item.status }}
+                                        </span>
+                                    </td>
+                                    <td>{{ item.block_index }}</td>
+                                    <td>
+                                        <a
+                                            class="button"
+                                            href="{{ url_for('index', credential_id=item.credential_id) }}"
+                                        >
+                                            Periksa
+                                        </a>
+
+                                        {% if item.status == 'Aktif' %}
+                                            <form
+                                                action="{{ url_for('revoke_credential', credential_id=item.credential_id) }}"
+                                                method="POST"
+                                                onsubmit="return confirm('Cabut kredensial ini?')"
+                                            >
+                                                <button class="danger" type="submit">
+                                                    Cabut
+                                                </button>
+                                            </form>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="muted">
+                    Belum ada kredensial. Terbitkan data dummy pertama
+                    untuk memulai pengujian.
+                </p>
+            {% endif %}
+        </section>
+
+        <section class="panel">
+            <h2>Simulasi Blockchain</h2>
+
+            <div class="chain-status {% if not chain_valid %}invalid{% endif %}">
+                {% if chain_valid %}
+                    Integritas rantai blok: valid
+                {% else %}
+                    Integritas rantai blok: tidak valid
+                {% endif %}
+            </div>
+
+            <p class="muted">
+                Blockchain simulasi Python mencatat transaksi penerbitan
+                dan pencabutan serta memeriksa integritas hash antarblok.
+                Verifikasi hash dan status kredensial juga dilakukan melalui
+                smart contract pada jaringan Hardhat EVM lokal.
+            </p>
+
+            <div class="chain-overview">
+                <div class="chain-stat">
+                    <span>Total Blok</span>
+                    <strong>{{ total_blocks }}</strong>
+                </div>
+
+                <div class="chain-stat">
+                    <span>Integritas Rantai</span>
+                    <strong>{{ "Valid" if chain_valid else "Tidak Valid" }}</strong>
+                </div>
+
+                <div class="chain-stat">
+                    <span>Status EVM</span>
+                    <strong>{{ "Terhubung" if evm_connected else "Terputus" }}</strong>
+                </div>
+            </div>
+
+            <details class="chain-details">
+                <summary>Lihat detail seluruh blok ({{ chain|length }} blok)</summary>
+
+                {% if chain %}
+                    <div class="block-list">
+                        {% for block in chain %}
+                            <details class="block-item">
+                                <summary>
+                                    Blok #{{ block.index }}
+                                    — {{ block.transactions|length }} transaksi
+                                </summary>
+
+                                <div class="block-meta">
+                                    <span>Waktu: {{ block.timestamp }}</span>
+                                    <span>Jumlah transaksi: {{ block.transactions|length }}</span>
+                                </div>
+
+                                <div class="block-hashes">
+                                    <div>
+                                        <p class="hash-label">Hash Blok</p>
+                                        <div class="hash hash-value">{{ block.hash }}</div>
+                                    </div>
+
+                                    <div>
+                                        <p class="hash-label">Hash Sebelumnya</p>
+                                        <div class="hash hash-value">{{ block.previous_hash }}</div>
+                                    </div>
+                                </div>
+                            </details>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="muted">Belum ada blok untuk ditampilkan.</p>
+                {% endif %}
+            </details>
+        </section>
+    </main>
+
+    <footer>UTS Blockchain · Mini Project</footer>
+</body>
+</html>
