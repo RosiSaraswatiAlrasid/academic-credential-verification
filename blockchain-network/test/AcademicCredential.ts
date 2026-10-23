@@ -178,4 +178,123 @@ describe("AcademicCredential", async function () {
       contract.revokeCredential(credentialId)
     );
   });
+
+  it("menolak transfer kepemilikan oleh non-owner", async function () {
+    const contract = await deployContract();
+    const [, otherAccount, newOwner] = await ethers.getSigners();
+
+    await assert.rejects(
+      contract.connect(otherAccount).transferOwnership(newOwner.address)
+    );
+  });
+
+  it("hanya pendingOwner yang dapat menerima kepemilikan", async function () {
+    const contract = await deployContract();
+    const [currentOwner, pendingOwner, otherAccount] = await ethers.getSigners();
+
+    await (await contract.transferOwnership(pendingOwner.address)).wait();
+
+    await assert.rejects(
+      contract.connect(otherAccount).acceptOwnership()
+    );
+    assert.equal(await contract.owner(), currentOwner.address);
+
+    await (await contract.connect(pendingOwner).acceptOwnership()).wait();
+    assert.equal(await contract.owner(), pendingOwner.address);
+    assert.equal(await contract.pendingOwner(), "0x0000000000000000000000000000000000000000");
+  });
+
+  it("owner lama kehilangan akses dan owner baru dapat mengelola kredensial", async function () {
+    const contract = await deployContract();
+    const [oldOwner, newOwner] = await ethers.getSigners();
+    const oldCredentialId = "CRD-OLD-OWNER";
+    const credentialId = "CRD-NEW-OWNER";
+    const credentialHash = createHash("data-kredensial-owner-baru");
+
+    await (await contract.issueCredential(
+      oldCredentialId,
+      credentialHash
+    )).wait();
+    await (await contract.transferOwnership(newOwner.address)).wait();
+    await (await contract.connect(newOwner).acceptOwnership()).wait();
+
+    await assert.rejects(
+      contract.connect(oldOwner).issueCredential(
+        "CRD-OLD-OWNER-2",
+        credentialHash
+      )
+    );
+    await assert.rejects(
+      contract.connect(oldOwner).revokeCredential(oldCredentialId)
+    );
+
+    await (await contract.connect(newOwner).issueCredential(
+      credentialId,
+      credentialHash
+    )).wait();
+    await (await contract.connect(newOwner).revokeCredential(credentialId)).wait();
+
+    assert.equal(await contract.owner(), newOwner.address);
+    assert.ok((await contract.getCredential(credentialId)).revokedAt > 0n);
+    assert.equal((await contract.getCredential(oldCredentialId)).revokedAt, 0n);
+  });
+
+  it("menolak address(0) sebagai owner baru", async function () {
+    const contract = await deployContract();
+
+    await assert.rejects(
+      contract.transferOwnership(
+        "0x0000000000000000000000000000000000000000"
+      )
+    );
+    assert.notEqual(
+      await contract.owner(),
+      "0x0000000000000000000000000000000000000000"
+    );
+  });
+
+  it("mengemit event ownership saat constructor, transfer, dan accept", async function () {
+    const contract = await deployContract();
+    const [currentOwner, newOwner] = await ethers.getSigners();
+    const deploymentReceipt = await contract.deploymentTransaction()?.wait();
+    assert.ok(deploymentReceipt);
+
+    const constructorEvents = await contract.queryFilter(
+      contract.filters.OwnershipTransferred(),
+      deploymentReceipt.blockNumber,
+      deploymentReceipt.blockNumber
+    );
+    assert.equal(constructorEvents.length, 1);
+    assert.equal(
+      constructorEvents[0].args.previousOwner,
+      "0x0000000000000000000000000000000000000000"
+    );
+    assert.equal(constructorEvents[0].args.newOwner, currentOwner.address);
+
+    const transferReceipt = await (
+      await contract.transferOwnership(newOwner.address)
+    ).wait();
+    assert.ok(transferReceipt);
+    const startedEvents = await contract.queryFilter(
+      contract.filters.OwnershipTransferStarted(),
+      transferReceipt.blockNumber,
+      transferReceipt.blockNumber
+    );
+    assert.equal(startedEvents.length, 1);
+    assert.equal(startedEvents[0].args.previousOwner, currentOwner.address);
+    assert.equal(startedEvents[0].args.newOwner, newOwner.address);
+
+    const acceptReceipt = await (
+      await contract.connect(newOwner).acceptOwnership()
+    ).wait();
+    assert.ok(acceptReceipt);
+    const transferredEvents = await contract.queryFilter(
+      contract.filters.OwnershipTransferred(),
+      acceptReceipt.blockNumber,
+      acceptReceipt.blockNumber
+    );
+    assert.equal(transferredEvents.length, 1);
+    assert.equal(transferredEvents[0].args.previousOwner, currentOwner.address);
+    assert.equal(transferredEvents[0].args.newOwner, newOwner.address);
+  });
 });

@@ -3,7 +3,11 @@
 pragma solidity ^0.8.28;
 
 contract AcademicCredential {
+    /// @notice The address currently authorized to manage credentials.
     address public owner;
+
+    /// @notice The address proposed to become the owner.
+    address public pendingOwner;
 
     struct Credential {
         bytes32 credentialHash;
@@ -26,13 +30,52 @@ contract AcademicCredential {
         address indexed revoker
     );
 
+    /// @notice Emitted when the current owner proposes a new owner.
+    /// @param previousOwner The current owner who initiated the transfer.
+    /// @param newOwner The proposed owner who must accept the transfer.
+    event OwnershipTransferStarted(
+        address indexed previousOwner,
+        address indexed newOwner
+    );
+
+    /// @notice Emitted when ownership changes.
+    /// @param previousOwner The address that previously owned the contract.
+    /// @param newOwner The address that now owns the contract.
+    event OwnershipTransferred(
+        address indexed previousOwner,
+        address indexed newOwner
+    );
+
+    /// @notice Sets the deployer as the initial owner.
+    /// @dev The initial owner cannot be the zero address.
     constructor() {
+        require(msg.sender != address(0), "Owner cannot be zero address");
         owner = msg.sender;
+        emit OwnershipTransferred(address(0), msg.sender);
     }
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Only owner can perform this action");
         _;
+    }
+
+    /// @notice Proposes a new owner; the proposed address must accept.
+    /// @param newOwner The address proposed to take ownership.
+    function transferOwnership(address newOwner) external onlyOwner {
+        require(newOwner != address(0), "New owner cannot be zero address");
+        pendingOwner = newOwner;
+        emit OwnershipTransferStarted(owner, newOwner);
+    }
+
+    /// @notice Accepts ownership as the pending owner.
+    function acceptOwnership() external {
+        require(msg.sender == pendingOwner, "Caller is not the pending owner");
+
+        address previousOwner = owner;
+        owner = msg.sender;
+        pendingOwner = address(0);
+
+        emit OwnershipTransferred(previousOwner, msg.sender);
     }
 
     function issueCredential(
