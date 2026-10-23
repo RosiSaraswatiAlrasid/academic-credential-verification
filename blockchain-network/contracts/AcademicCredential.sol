@@ -21,12 +21,14 @@ contract AcademicCredential {
 
     event CredentialIssued(
         string credentialId,
+        bytes32 indexed credentialIdHash,
         bytes32 credentialHash,
         address indexed issuer
     );
 
     event CredentialRevoked(
         string credentialId,
+        bytes32 indexed credentialIdHash,
         address indexed revoker
     );
 
@@ -94,7 +96,12 @@ contract AcademicCredential {
             exists: true
         });
 
-        emit CredentialIssued(credentialId, credentialHash, msg.sender);
+        emit CredentialIssued(
+            credentialId,
+            keccak256(bytes(credentialId)),
+            credentialHash,
+            msg.sender
+        );
     }
 
     function verifyCredential(
@@ -120,7 +127,11 @@ contract AcademicCredential {
 
         credential.revokedAt = block.timestamp;
 
-        emit CredentialRevoked(credentialId, msg.sender);
+        emit CredentialRevoked(
+            credentialId,
+            keccak256(bytes(credentialId)),
+            msg.sender
+        );
     }
 
     function getCredential(

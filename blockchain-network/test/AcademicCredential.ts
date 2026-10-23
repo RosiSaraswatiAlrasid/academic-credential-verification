@@ -297,4 +297,37 @@ describe("AcademicCredential", async function () {
     assert.equal(transferredEvents[0].args.previousOwner, currentOwner.address);
     assert.equal(transferredEvents[0].args.newOwner, newOwner.address);
   });
+
+  it("memfilter event penerbitan dan pencabutan berdasarkan hash ID", async function () {
+    const contract = await deployContract();
+    const firstId = "CRD-FILTER-001";
+    const secondId = "CRD-FILTER-002";
+    const firstIdHash = createHash(firstId);
+    const firstCredentialHash = createHash("credential-one");
+
+    await (await contract.issueCredential(
+      firstId,
+      firstCredentialHash
+    )).wait();
+    await (await contract.issueCredential(
+      secondId,
+      createHash("credential-two")
+    )).wait();
+    await (await contract.revokeCredential(firstId)).wait();
+    await (await contract.revokeCredential(secondId)).wait();
+
+    const issuedEvents = await contract.queryFilter(
+      contract.filters.CredentialIssued(null, firstIdHash)
+    );
+    assert.equal(issuedEvents.length, 1);
+    assert.equal(issuedEvents[0].args.credentialId, firstId);
+    assert.equal(issuedEvents[0].args.credentialIdHash, firstIdHash);
+
+    const revokedEvents = await contract.queryFilter(
+      contract.filters.CredentialRevoked(null, firstIdHash)
+    );
+    assert.equal(revokedEvents.length, 1);
+    assert.equal(revokedEvents[0].args.credentialId, firstId);
+    assert.equal(revokedEvents[0].args.credentialIdHash, firstIdHash);
+  });
 });
