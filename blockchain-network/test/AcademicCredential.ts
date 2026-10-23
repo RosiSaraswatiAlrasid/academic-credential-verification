@@ -330,4 +330,23 @@ describe("AcademicCredential", async function () {
     assert.equal(revokedEvents[0].args.credentialId, firstId);
     assert.equal(revokedEvents[0].args.credentialIdHash, firstIdHash);
   });
+
+  it("menolak penerbitan ulang ID kredensial yang sudah dicabut", async function () {
+    const contract = await deployContract();
+    const credentialId = "CRD-REVOKED-ID";
+
+    await (await contract.issueCredential(
+      credentialId,
+      createHash("credential-before-revocation")
+    )).wait();
+    await (await contract.revokeCredential(credentialId)).wait();
+
+    await assert.rejects(
+      contract.issueCredential(
+        credentialId,
+        createHash("credential-after-revocation")
+      ),
+      /Credential already exists/
+    );
+  });
 });

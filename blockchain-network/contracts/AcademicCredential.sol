@@ -1,6 +1,6 @@
 
  // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity 0.8.34;
 
 contract AcademicCredential {
     /// @notice The address currently authorized to manage credentials.
@@ -117,6 +117,8 @@ contract AcademicCredential {
         );
     }
 
+    /// @notice Permanently revokes a credential; its ID cannot be reused.
+    /// @dev Revocation does not remove the credential or free its ID for reissuance.
     function revokeCredential(
         string calldata credentialId
     ) external onlyOwner {
