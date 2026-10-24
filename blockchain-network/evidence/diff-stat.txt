@@ -1,0 +1,6 @@
+ .../contracts/AcademicCredential.sol               |   62 +-
+ blockchain-network/hardhat.config.ts               |    5 +-
+ blockchain-network/package-lock.json               | 1604 +++-----------------
+ blockchain-network/package.json                    |    3 +-
+ blockchain-network/test/AcademicCredential.ts      |  171 +++
+ 5 files changed, 420 insertions(+), 1425 deletions(-)

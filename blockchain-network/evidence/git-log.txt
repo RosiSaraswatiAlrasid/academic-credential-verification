@@ -1,0 +1,4 @@
+c6cb053 (HEAD -> main, origin/main, origin/HEAD) fix: F-04 pin pragma; docs: F-06 revoke permanen + test
+2725770 fix: F-03 indexed credentialIdHash di event
+b67ca11 fix: F-01 F-05 two-step ownership + test; chore: ganti plugin ke node-test-runner
+648c471 (tag: v1-vulnerable) Initial commit: Academic Credential Verification

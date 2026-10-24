@@ -1,0 +1,14 @@
+Multiple frameworks detected: solc, Solc-json. Using solc (highest priority). Use --compile-force-framework to override.
+'solc --version' running
+'solc contracts/AcademicCredential.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,C:\Users\aidaa\academic-credential-verification\blockchain-network\contracts' running
+INFO:Detectors:
+Detector: timestamp
+AcademicCredential.issueCredential(string,bytes32) (contracts/AcademicCredential.sol#83-105) uses timestamp for comparisons
+	Dangerous comparisons:
+	- require(bool,string)(! credentials[credentialId].exists,Credential already exists) (contracts/AcademicCredential.sol#89)
+AcademicCredential.revokeCredential(string) (contracts/AcademicCredential.sol#122-137) uses timestamp for comparisons
+	Dangerous comparisons:
+	- require(bool,string)(credential.exists,Credential not found) (contracts/AcademicCredential.sol#127)
+	- require(bool,string)(credential.revokedAt == 0,Credential already revoked) (contracts/AcademicCredential.sol#128)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#block-timestamp
+INFO:Slither:contracts/AcademicCredential.sol analyzed (1 contracts with 102 detectors), 2 result(s) found

@@ -1,0 +1,44 @@
+No contracts to compile
+
+Running Solidity tests
+
+
+Running node:test tests
+
+  AcademicCredential
+    ✔ menerbitkan dan memverifikasi kredensial valid (77ms)
+    ✔ menolak hash yang salah
+    ✔ menolak kredensial yang sudah dicabut
+    ✔ menolak penerbitan dengan ID kosong
+    ✔ menolak penerbitan dengan hash kosong
+    ✔ menolak penerbitan dengan ID yang sudah digunakan
+    ✔ menolak penerbitan oleh akun selain pemilik
+    ✔ menolak pencabutan oleh akun selain pemilik
+    ✔ menolak pencabutan kredensial yang tidak ditemukan
+    ✔ menolak pencabutan kredensial untuk kedua kalinya
+    ✔ menolak transfer kepemilikan oleh non-owner
+    ✔ hanya pendingOwner yang dapat menerima kepemilikan
+    ✔ owner lama kehilangan akses dan owner baru dapat mengelola kredensial
+    ✔ menolak address(0) sebagai owner baru
+    ✔ mengemit event ownership saat constructor, transfer, dan accept
+    ✔ memfilter event penerbitan dan pencabutan berdasarkan hash ID
+    ✔ menolak penerbitan ulang ID kredensial yang sudah dicabut
+
+
+17 passing (17 nodejs)
+
+Saved html report to C:\Users\aidaa\academic-credential-verification\blockchain-network\coverage\html
+╔═══════════════════════════════════════════════════════════════════════════╗
+║                              Coverage Report                              ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+╔═══════════════════════════════════════════════════════════════════════════╗
+║ File Coverage                                                             ║
+╟──────────────────────────────────┬────────┬─────────────┬─────────────────╢
+║ File Path                        │ Line % │ Statement % │ Uncovered Lines ║
+╟──────────────────────────────────┼────────┼─────────────┼─────────────────╢
+║ contracts\AcademicCredential.sol │ 100.00 │ 100.00      │ -               ║
+╟──────────────────────────────────┼────────┼─────────────┼─────────────────╢
+║ Total                            │ 100.00 │ 100.00      │                 ║
+╚══════════════════════════════════╧════════╧═════════════╧═════════════════╝
+
+

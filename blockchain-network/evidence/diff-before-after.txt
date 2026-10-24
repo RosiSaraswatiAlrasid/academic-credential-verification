@@ -1,0 +1,302 @@
+diff --git a/blockchain-network/contracts/AcademicCredential.sol b/blockchain-network/contracts/AcademicCredential.sol
+index b7f86f7..64e1efd 100644
+--- a/blockchain-network/contracts/AcademicCredential.sol
++++ b/blockchain-network/contracts/AcademicCredential.sol
+@@ -1,10 +1,14 @@
+ 
+  // SPDX-License-Identifier: MIT
+-pragma solidity ^0.8.28;
++pragma solidity 0.8.34;
+ 
+ contract AcademicCredential {
++    /// @notice The address currently authorized to manage credentials.
+     address public owner;
+ 
++    /// @notice The address proposed to become the owner.
++    address public pendingOwner;
++
+     struct Credential {
+         bytes32 credentialHash;
+         address issuer;
+@@ -17,17 +21,39 @@ contract AcademicCredential {
+ 
+     event CredentialIssued(
+         string credentialId,
++        bytes32 indexed credentialIdHash,
+         bytes32 credentialHash,
+         address indexed issuer
+     );
+ 
+     event CredentialRevoked(
+         string credentialId,
++        bytes32 indexed credentialIdHash,
+         address indexed revoker
+     );
+ 
++    /// @notice Emitted when the current owner proposes a new owner.
++    /// @param previousOwner The current owner who initiated the transfer.
++    /// @param newOwner The proposed owner who must accept the transfer.
++    event OwnershipTransferStarted(
++        address indexed previousOwner,
++        address indexed newOwner
++    );
++
++    /// @notice Emitted when ownership changes.
++    /// @param previousOwner The address that previously owned the contract.
++    /// @param newOwner The address that now owns the contract.
++    event OwnershipTransferred(
++        address indexed previousOwner,
++        address indexed newOwner
++    );
++
++    /// @notice Sets the deployer as the initial owner.
++    /// @dev The initial owner cannot be the zero address.
+     constructor() {
++        require(msg.sender != address(0), "Owner cannot be zero address");
+         owner = msg.sender;
++        emit OwnershipTransferred(address(0), msg.sender);
+     }
+ 
+     modifier onlyOwner() {
+@@ -35,6 +61,25 @@ contract AcademicCredential {
+         _;
+     }
+ 
++    /// @notice Proposes a new owner; the proposed address must accept.
++    /// @param newOwner The address proposed to take ownership.
++    function transferOwnership(address newOwner) external onlyOwner {
++        require(newOwner != address(0), "New owner cannot be zero address");
++        pendingOwner = newOwner;
++        emit OwnershipTransferStarted(owner, newOwner);
++    }
++
++    /// @notice Accepts ownership as the pending owner.
++    function acceptOwnership() external {
++        require(msg.sender == pendingOwner, "Caller is not the pending owner");
++
++        address previousOwner = owner;
++        owner = msg.sender;
++        pendingOwner = address(0);
++
++        emit OwnershipTransferred(previousOwner, msg.sender);
++    }
++
+     function issueCredential(
+         string calldata credentialId,
+         bytes32 credentialHash
+@@ -51,7 +96,12 @@ contract AcademicCredential {
+             exists: true
+         });
+ 
+-        emit CredentialIssued(credentialId, credentialHash, msg.sender);
++        emit CredentialIssued(
++            credentialId,
++            keccak256(bytes(credentialId)),
++            credentialHash,
++            msg.sender
++        );
+     }
+ 
+     function verifyCredential(
+@@ -67,6 +117,8 @@ contract AcademicCredential {
+         );
+     }
+ 
++    /// @notice Permanently revokes a credential; its ID cannot be reused.
++    /// @dev Revocation does not remove the credential or free its ID for reissuance.
+     function revokeCredential(
+         string calldata credentialId
+     ) external onlyOwner {
+@@ -77,7 +129,11 @@ contract AcademicCredential {
+ 
+         credential.revokedAt = block.timestamp;
+ 
+-        emit CredentialRevoked(credentialId, msg.sender);
++        emit CredentialRevoked(
++            credentialId,
++            keccak256(bytes(credentialId)),
++            msg.sender
++        );
+     }
+ 
+     function getCredential(
+diff --git a/blockchain-network/test/AcademicCredential.ts b/blockchain-network/test/AcademicCredential.ts
+index 85cd51a..681965b 100644
+--- a/blockchain-network/test/AcademicCredential.ts
++++ b/blockchain-network/test/AcademicCredential.ts
+@@ -178,4 +178,175 @@ describe("AcademicCredential", async function () {
+       contract.revokeCredential(credentialId)
+     );
+   });
++
++  it("menolak transfer kepemilikan oleh non-owner", async function () {
++    const contract = await deployContract();
++    const [, otherAccount, newOwner] = await ethers.getSigners();
++
++    await assert.rejects(
++      contract.connect(otherAccount).transferOwnership(newOwner.address)
++    );
++  });
++
++  it("hanya pendingOwner yang dapat menerima kepemilikan", async function () {
++    const contract = await deployContract();
++    const [currentOwner, pendingOwner, otherAccount] = await ethers.getSigners();
++
++    await (await contract.transferOwnership(pendingOwner.address)).wait();
++
++    await assert.rejects(
++      contract.connect(otherAccount).acceptOwnership()
++    );
++    assert.equal(await contract.owner(), currentOwner.address);
++
++    await (await contract.connect(pendingOwner).acceptOwnership()).wait();
++    assert.equal(await contract.owner(), pendingOwner.address);
++    assert.equal(await contract.pendingOwner(), "0x0000000000000000000000000000000000000000");
++  });
++
++  it("owner lama kehilangan akses dan owner baru dapat mengelola kredensial", async function () {
++    const contract = await deployContract();
++    const [oldOwner, newOwner] = await ethers.getSigners();
++    const oldCredentialId = "CRD-OLD-OWNER";
++    const credentialId = "CRD-NEW-OWNER";
++    const credentialHash = createHash("data-kredensial-owner-baru");
++
++    await (await contract.issueCredential(
++      oldCredentialId,
++      credentialHash
++    )).wait();
++    await (await contract.transferOwnership(newOwner.address)).wait();
++    await (await contract.connect(newOwner).acceptOwnership()).wait();
++
++    await assert.rejects(
++      contract.connect(oldOwner).issueCredential(
++        "CRD-OLD-OWNER-2",
++        credentialHash
++      )
++    );
++    await assert.rejects(
++      contract.connect(oldOwner).revokeCredential(oldCredentialId)
++    );
++
++    await (await contract.connect(newOwner).issueCredential(
++      credentialId,
++      credentialHash
++    )).wait();
++    await (await contract.connect(newOwner).revokeCredential(credentialId)).wait();
++
++    assert.equal(await contract.owner(), newOwner.address);
++    assert.ok((await contract.getCredential(credentialId)).revokedAt > 0n);
++    assert.equal((await contract.getCredential(oldCredentialId)).revokedAt, 0n);
++  });
++
++  it("menolak address(0) sebagai owner baru", async function () {
++    const contract = await deployContract();
++
++    await assert.rejects(
++      contract.transferOwnership(
++        "0x0000000000000000000000000000000000000000"
++      )
++    );
++    assert.notEqual(
++      await contract.owner(),
++      "0x0000000000000000000000000000000000000000"
++    );
++  });
++
++  it("mengemit event ownership saat constructor, transfer, dan accept", async function () {
++    const contract = await deployContract();
++    const [currentOwner, newOwner] = await ethers.getSigners();
++    const deploymentReceipt = await contract.deploymentTransaction()?.wait();
++    assert.ok(deploymentReceipt);
++
++    const constructorEvents = await contract.queryFilter(
++      contract.filters.OwnershipTransferred(),
++      deploymentReceipt.blockNumber,
++      deploymentReceipt.blockNumber
++    );
++    assert.equal(constructorEvents.length, 1);
++    assert.equal(
++      constructorEvents[0].args.previousOwner,
++      "0x0000000000000000000000000000000000000000"
++    );
++    assert.equal(constructorEvents[0].args.newOwner, currentOwner.address);
++
++    const transferReceipt = await (
++      await contract.transferOwnership(newOwner.address)
++    ).wait();
++    assert.ok(transferReceipt);
++    const startedEvents = await contract.queryFilter(
++      contract.filters.OwnershipTransferStarted(),
++      transferReceipt.blockNumber,
++      transferReceipt.blockNumber
++    );
++    assert.equal(startedEvents.length, 1);
++    assert.equal(startedEvents[0].args.previousOwner, currentOwner.address);
++    assert.equal(startedEvents[0].args.newOwner, newOwner.address);
++
++    const acceptReceipt = await (
++      await contract.connect(newOwner).acceptOwnership()
++    ).wait();
++    assert.ok(acceptReceipt);
++    const transferredEvents = await contract.queryFilter(
++      contract.filters.OwnershipTransferred(),
++      acceptReceipt.blockNumber,
++      acceptReceipt.blockNumber
++    );
++    assert.equal(transferredEvents.length, 1);
++    assert.equal(transferredEvents[0].args.previousOwner, currentOwner.address);
++    assert.equal(transferredEvents[0].args.newOwner, newOwner.address);
++  });
++
++  it("memfilter event penerbitan dan pencabutan berdasarkan hash ID", async function () {
++    const contract = await deployContract();
++    const firstId = "CRD-FILTER-001";
++    const secondId = "CRD-FILTER-002";
++    const firstIdHash = createHash(firstId);
++    const firstCredentialHash = createHash("credential-one");
++
++    await (await contract.issueCredential(
++      firstId,
++      firstCredentialHash
++    )).wait();
++    await (await contract.issueCredential(
++      secondId,
++      createHash("credential-two")
++    )).wait();
++    await (await contract.revokeCredential(firstId)).wait();
++    await (await contract.revokeCredential(secondId)).wait();
++
++    const issuedEvents = await contract.queryFilter(
++      contract.filters.CredentialIssued(null, firstIdHash)
++    );
++    assert.equal(issuedEvents.length, 1);
++    assert.equal(issuedEvents[0].args.credentialId, firstId);
++    assert.equal(issuedEvents[0].args.credentialIdHash, firstIdHash);
++
++    const revokedEvents = await contract.queryFilter(
++      contract.filters.CredentialRevoked(null, firstIdHash)
++    );
++    assert.equal(revokedEvents.length, 1);
++    assert.equal(revokedEvents[0].args.credentialId, firstId);
++    assert.equal(revokedEvents[0].args.credentialIdHash, firstIdHash);
++  });
++
++  it("menolak penerbitan ulang ID kredensial yang sudah dicabut", async function () {
++    const contract = await deployContract();
++    const credentialId = "CRD-REVOKED-ID";
++
++    await (await contract.issueCredential(
++      credentialId,
++      createHash("credential-before-revocation")
++    )).wait();
++    await (await contract.revokeCredential(credentialId)).wait();
++
++    await assert.rejects(
++      contract.issueCredential(
++        credentialId,
++        createHash("credential-after-revocation")
++      ),
++      /Credential already exists/
++    );
++  });
+ });
