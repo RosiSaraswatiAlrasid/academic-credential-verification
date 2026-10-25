@@ -89,7 +89,7 @@ def hash_credential(data):
 
 
 def get_credential_data(credential):
-    return {
+    data = {
         "credential_id": credential["credential_id"],
         "student_name": credential["student_name"],
         "student_id": credential["student_id"],
@@ -97,6 +97,14 @@ def get_credential_data(credential):
         "institution": credential["institution"],
         "graduation_year": credential["graduation_year"]
     }
+
+    # Salt acak 32 byte (S-02). Disimpan hanya di SQLite, tidak pernah
+    # dikirim ke blockchain. Kredensial lama tanpa salt tetap dapat
+    # diverifikasi (kompatibilitas mundur).
+    if credential.get("salt"):
+        data["salt"] = credential["salt"]
+
+    return data
 
 
 def get_onchain_status(credential_id, credential_hash):
@@ -328,7 +336,8 @@ def issue_credential():
             "student_id": student_id,
             "credential_type": credential_type,
             "institution": institution,
-            "graduation_year": graduation_year
+            "graduation_year": graduation_year,
+            "salt": secrets.token_hex(32)
         }
 
         credential_hash = hash_credential(credential_data)
